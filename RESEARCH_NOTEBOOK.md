@@ -478,11 +478,29 @@ Do not split individual frames randomly. Split by episode/task according to the 
 | Date | Model commit | LeRobot commit | Dataset revision | Notes |
 |---|---|---|---|---|
 
+## First dataset inspection: RememberColor3-VLA-v0
+
+The first local LeRobotDataset v3 inspection completed successfully.
+
+- Episodes: 250
+- Frames: 3,858
+- Frequency: 10 Hz
+- Cameras: top and wrist
+- Image tensors: `[3, 128, 128]` per camera
+- Proprioceptive state: 7D float32
+- Action: 7D float32
+- Instruction: “Observe the cube's color, wait, then touch the cube of the same color.”
+- Split metadata: 250 training episodes
+
+The loader decoded both video-backed observations and returned PyTorch tensors. TorchCodec was unavailable in the current environment, so LeRobot used its PyAV fallback; this did not prevent dataset loading.
+
+This task is suitable for the first baseline because it contains a simple delayed color-memory requirement while retaining the standard image/state/action/instruction interface.
+
 ## Dataset inspection
 
 | Dataset/task | Episodes | Frames | Cameras | State shape | Action shape | FPS | Result |
 |---|---:|---:|---|---|---|---:|---|
-| RememberColor3-VLA-v0 | — | — | — | — | — | — | pending |
+| RememberColor3-VLA-v0 | 250 | 3,858 | top, wrist | (7,) | (7,) | 10 | passed |
 
 ## Offline baseline
 
