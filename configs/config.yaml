@@ -9,5 +9,9 @@ experiment_name: infrastructure_smoke
 
 tracking:
   enabled: true
-  uri: file:./mlruns
+  uri: sqlite:///mlflow.db
   experiment: SmolVLA-M
+
+hydra:
+  job:
+    chdir: false
