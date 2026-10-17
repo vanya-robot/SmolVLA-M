@@ -2,10 +2,7 @@
 
 > Living research log. The agenda at the top is the current source of truth. Update the agenda and result tables after every meaningful run.
 
-**Repository:** `vanya-robot/SmolVLA-M`  
-**Active branch:** `dev`  
 **Base policy:** Hugging Face LeRobot / SmolVLA  
-**Compute:** local CPU for smoke tests; remote RTX 4060 8 GB for training; Kaggle later for rendered benchmark evaluation.
 
 ---
 
@@ -21,9 +18,7 @@
 6. Add the first memory condition: a compact recurrent/global memory token.
 7. Add an ELMUR-inspired bounded memory bank with read/write attention and LRU rewrite.
 8. Compare memory placement: prefix/VLM, action expert, and layer-local action-expert memory.
-9. Move selected checkpoints to Kaggle and evaluate online success on MIKASA-Robo-VLA.
 
-**Current stopping point:** the local CPU environment imports LeRobot and loads `lerobot/smolvla_base`. The remote GPU environment is ready. No real dataset batch or training run has been completed yet.
 
 ---
 
@@ -63,7 +58,6 @@ The first offline dataset run is not yet a claim about benchmark success. It val
 - the model receives the intended information;
 - the loss and gradient path are correct.
 
-True success rate requires running the benchmark environment later, which we plan to do in Kaggle.
 
 ---
 
@@ -481,9 +475,8 @@ Do not split individual frames randomly. Split by episode/task according to the 
 
 ## Environment and reproducibility
 
-| Date | Host | Commit | LeRobot commit | Python | Torch | GPU | Dataset revision | Notes |
-|---|---|---|---|---|---|---|---|---|
-| 2026-10-17 | local CPU | current | current |  |  | CPU | — | model load passed |
+| Date | Model commit | LeRobot commit | Dataset revision | Notes |
+|---|---|---|---|---|
 
 ## Dataset inspection
 
