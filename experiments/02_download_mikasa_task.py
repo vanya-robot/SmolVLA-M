@@ -1,12 +1,22 @@
 #!/usr/bin/env python3
-"""Download selected MIKASA-Robo-VLA LeRobotDataset v3 tasks."""
+"""Download a selected MIKASA-Robo-VLA LeRobotDataset v3 task."""
 
 from __future__ import annotations
 
 import argparse
+import re
 from pathlib import Path
 
 from huggingface_hub import snapshot_download
+
+
+def normalize_task_name(task: str) -> str:
+    """Convert public benchmark names to Hub directory names."""
+    task = re.sub(r"(?<=[a-z])(?=[A-Z])", "_", task)
+    task = re.sub(r"(?<=[A-Za-z])(?=\\d)", "_", task)
+    task = re.sub(r"(?<=\\d)(?=[A-Za-z])", "_", task)
+    task = task.replace("-", "_").lower()
+    return task.replace("v_l_a", "vla")
 
 
 parser = argparse.ArgumentParser()
@@ -22,12 +32,14 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-allow_pattern = f"{args.task}/**"
+task_path = normalize_task_name(args.task)
+allow_pattern = f"{task_path}/**"
 args.output.mkdir(parents=True, exist_ok=True)
 
 print("Downloading:")
 print("  repo:", args.repo_id)
-print("  task:", args.task)
+print("  requested task:", args.task)
+print("  Hub task path:", task_path)
 print("  output:", args.output)
 print("  pattern:", allow_pattern)
 
