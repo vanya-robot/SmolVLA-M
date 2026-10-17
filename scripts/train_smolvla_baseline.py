@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import random
 from pathlib import Path
+from contextlib import contextmanager
 
 import hydra
 import mlflow
@@ -58,6 +59,52 @@ def preprocess_batch(raw_batch: dict, preprocessor, stats: dict) -> dict:
     return default_collate(samples)
 
 
+@contextmanager
+def deterministic_validation(seed: int):
+    """Keep validation noise/timesteps repeatable without changing train RNG."""
+    cpu_state = torch.random.get_rng_state()
+    cuda_state = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    try:
+        yield
+    finally:
+        torch.random.set_rng_state(cpu_state)
+        if cuda_state is not None:
+            torch.cuda.set_rng_state_all(cuda_state)
+
+
+def evaluate(policy, loader, preprocessor, stats, batches: int, seed: int) -> float:
+    policy.eval()
+    losses = []
+    iterator = iter(loader)
+    with deterministic_validation(seed), torch.no_grad():
+        for _ in range(batches):
+            try:
+                raw_batch = next(iterator)
+            except StopIteration:
+                break
+            batch = preprocess_batch(raw_batch, preprocessor, stats)
+            loss, _ = policy(batch)
+            losses.append(float(loss))
+    policy.train()
+    if not losses:
+        raise RuntimeError("Validation loader produced no batches.")
+    return sum(losses) / len(losses)
+
+
+def save_checkpoint(path: Path, policy, optimizer, step: int, cfg: DictConfig, include_optimizer: bool) -> None:
+    payload = {
+        "step": step,
+        "model": policy.state_dict(),
+        "config": OmegaConf.to_container(cfg, resolve=True),
+    }
+    if include_optimizer:
+        payload["optimizer"] = optimizer.state_dict()
+    torch.save(payload, path)
+
+
 def flatten_config(cfg: DictConfig) -> dict[str, str | int | float | bool]:
     result = {}
     for key, value in OmegaConf.to_container(cfg, resolve=True).items():
@@ -71,7 +118,9 @@ def main(cfg: DictConfig) -> None:
     device = torch.device(cfg.trainer.device if cfg.trainer.device == "cpu" or torch.cuda.is_available() else "cpu")
     manifest = Path(cfg.data.manifest).expanduser()
     dataset = MikasaWindowDataset(manifest, "train")
+    validation_dataset = MikasaWindowDataset(manifest, "validation")
     loader = DataLoader(dataset, batch_size=int(cfg.trainer.batch_size), shuffle=True, num_workers=0)
+    validation_loader = DataLoader(validation_dataset, batch_size=int(cfg.trainer.batch_size), shuffle=False, num_workers=0)
     stats = dict(dataset.dataset.meta.stats)
     mapped_stats = dict(stats)
     for source, target in {
@@ -94,31 +143,61 @@ def main(cfg: DictConfig) -> None:
     output_dir = Path(cfg.trainer.output_dir).expanduser()
     output_dir.mkdir(parents=True, exist_ok=True)
     iterator = iter(loader)
+    accumulation_steps = int(cfg.trainer.gradient_accumulation_steps)
+    checkpoint_every = int(cfg.trainer.checkpoint_every)
+    validation_every = int(cfg.trainer.validation_every)
+    best_validation_loss = float("inf")
     with mlflow.start_run(run_name=cfg.experiment_name) if cfg.tracking.enabled else _nullcontext() as run:
         if cfg.tracking.enabled:
             mlflow.log_params(flatten_config(cfg))
             mlflow.log_param("device", str(device))
             mlflow.log_param("trainable_parameter_count", sum(parameter.numel() for parameter in parameters))
+        optimizer.zero_grad(set_to_none=True)
         for step in range(1, int(cfg.trainer.steps) + 1):
-            try:
-                raw_batch = next(iterator)
-            except StopIteration:
-                iterator = iter(loader)
-                raw_batch = next(iterator)
-            batch = preprocess_batch(raw_batch, preprocessor, stats)
-            optimizer.zero_grad(set_to_none=True)
-            loss, loss_dict = policy(batch)
-            loss.backward()
+            accumulated_loss = 0.0
+            for _ in range(accumulation_steps):
+                try:
+                    raw_batch = next(iterator)
+                except StopIteration:
+                    iterator = iter(loader)
+                    raw_batch = next(iterator)
+                batch = preprocess_batch(raw_batch, preprocessor, stats)
+                loss, _ = policy(batch)
+                (loss / accumulation_steps).backward()
+                accumulated_loss += float(loss.detach())
+            loss = torch.tensor(accumulated_loss / accumulation_steps)
+            torch.nn.utils.clip_grad_norm_(parameters, max_norm=1.0)
             optimizer.step()
+            optimizer.zero_grad(set_to_none=True)
             if step % int(cfg.trainer.log_every) == 0:
-                print(f"step={step} loss={float(loss.detach()):.6f}")
+                train_loss = float(loss)
+                print(f"step={step} train_loss={train_loss:.6f}")
                 if cfg.tracking.enabled:
-                    mlflow.log_metric("train/loss", float(loss.detach()), step=step)
-            if step % int(cfg.trainer.checkpoint_every) == 0 or step == int(cfg.trainer.steps):
-                checkpoint = output_dir / f"step_{step:06d}.pt"
-                torch.save({"step": step, "model": policy.state_dict(), "optimizer": optimizer.state_dict(), "config": OmegaConf.to_container(cfg, resolve=True)}, checkpoint)
+                    mlflow.log_metric("train/loss", train_loss, step=step)
+            if step % validation_every == 0:
+                validation_loss = evaluate(
+                    policy,
+                    validation_loader,
+                    preprocessor,
+                    stats,
+                    int(cfg.trainer.validation_batches),
+                    int(cfg.seed) + step,
+                )
+                print(f"step={step} validation_loss={validation_loss:.6f}")
                 if cfg.tracking.enabled:
-                    mlflow.log_artifact(str(checkpoint), artifact_path="checkpoints")
+                    mlflow.log_metric("validation/loss", validation_loss, step=step)
+                if validation_loss < best_validation_loss:
+                    best_validation_loss = validation_loss
+                    save_checkpoint(output_dir / "best.pt", policy, optimizer, step, cfg, include_optimizer=False)
+                    if cfg.tracking.enabled:
+                        mlflow.log_artifact(str(output_dir / "best.pt"), artifact_path="checkpoints")
+            if step % checkpoint_every == 0:
+                save_checkpoint(output_dir / "last.pt", policy, optimizer, step, cfg, include_optimizer=True)
+
+        save_checkpoint(output_dir / "final.pt", policy, optimizer, int(cfg.trainer.steps), cfg, include_optimizer=False)
+        save_checkpoint(output_dir / "last.pt", policy, optimizer, int(cfg.trainer.steps), cfg, include_optimizer=True)
+        if cfg.tracking.enabled:
+            mlflow.log_artifact(str(output_dir / "final.pt"), artifact_path="checkpoints")
 
 
 class _nullcontext:
