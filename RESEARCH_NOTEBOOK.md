@@ -520,6 +520,28 @@ Therefore, H=50 is not an appropriate primary training horizon for this short ta
 
 This is a data/task property, not evidence that SmolVLA is architecturally limited to 50 actions.
 
+## Action-horizon finding: RememberColor3-VLA-v0 long
+
+The long variant has a substantially different temporal scale:
+
+- Episode count: 250
+- Minimum length: 92 frames
+- Maximum length: 599 frames
+- Mean length: 334.064 frames
+- Median length: 337 frames
+- 25th/75th percentiles: 234/435 frames
+- 90th/95th percentiles: 494/513 frames
+
+At 10 Hz, the median episode lasts approximately 33.7 seconds. Estimated padding fractions are low for the standard SmolVLA horizon:
+
+| Horizon | Padding fraction |
+|---:|---:|
+| 16 | 0.022 |
+| 30 | 0.043 |
+| 50 | 0.073 |
+
+The long task is therefore the appropriate first substantive training and memory-evaluation setting. We can retain the pretrained-compatible H=50 configuration without fabricating intermediate actions. The short variant remains useful for a lightweight pipeline check, but H=50 is poorly matched to it.
+
 ## Dataset inspection
 
 | Dataset/task | Episodes | Frames | Cameras | State shape | Action shape | FPS | Result |
