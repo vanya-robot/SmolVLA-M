@@ -496,6 +496,30 @@ The loader decoded both video-backed observations and returned PyTorch tensors. 
 
 This task is suitable for the first baseline because it contains a simple delayed color-memory requirement while retaining the standard image/state/action/instruction interface.
 
+## Action-horizon finding: RememberColor3-VLA-v0
+
+The episode-length analysis changes the initial training plan.
+
+- Episode count: 250
+- Minimum length: 11 frames
+- Maximum length: 20 frames
+- Mean length: 15.432 frames
+- Median length: 15 frames
+- 25th/75th percentiles: 14/17 frames
+- 90th/95th percentiles: 18/19 frames
+
+At 10 Hz, these episodes last roughly 1.1–2.0 seconds. If every timestep is used as a chunk start and the target is padded to a fixed horizon, the estimated padding fractions are:
+
+| Horizon | Padding fraction |
+|---:|---:|
+| 16 | 0.482 |
+| 30 | 0.722 |
+| 50 | 0.833 |
+
+Therefore, H=50 is not an appropriate primary training horizon for this short task. We will inspect the long task variant and compare fixed horizons with valid-window sampling. The main baseline should avoid crossing episode boundaries and should either use a shorter horizon or exclude starts that cannot provide a full target chunk.
+
+This is a data/task property, not evidence that SmolVLA is architecturally limited to 50 actions.
+
 ## Dataset inspection
 
 | Dataset/task | Episodes | Frames | Cameras | State shape | Action shape | FPS | Result |
