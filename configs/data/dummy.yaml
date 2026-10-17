@@ -1,0 +1,5 @@
+name: dummy
+batch_size: 2
+history_length: 8
+input_dim: 32
+memory_dim: 128
