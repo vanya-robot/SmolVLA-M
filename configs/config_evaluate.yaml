@@ -1,0 +1,21 @@
+defaults:
+  - data: mikasa_long
+  - model: smolvla_pretrained
+  - _self_
+
+seed: 20261018
+experiment_name: evaluate_smolvla
+
+tracking:
+  enabled: true
+  uri: sqlite:///mlflow.db
+  experiment: SmolVLA-M
+
+data:
+  manifest: outputs/mikasa/remember_color_3_long_vla_v0/manifest.json
+
+evaluation:
+  split: validation
+  batch_size: 1
+  max_batches: 16
+  output: outputs/evaluations/smolvla.json
