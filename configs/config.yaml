@@ -1,0 +1,13 @@
+defaults:
+  - data: dummy
+  - memory: none
+  - trainer: debug
+  - _self_
+
+seed: 42
+experiment_name: infrastructure_smoke
+
+tracking:
+  enabled: true
+  uri: file:./mlruns
+  experiment: SmolVLA-M
