@@ -1,0 +1,26 @@
+defaults:
+  - data: mikasa_long
+  - split: episode
+  - _self_
+
+seed: 20261018
+experiment_name: baseline_smolvla_mikasa_long
+pretrained_policy: lerobot/smolvla_base
+
+tracking:
+  enabled: true
+  uri: sqlite:///mlflow.db
+  experiment: SmolVLA-M
+
+data:
+  manifest: outputs/mikasa/remember_color_3_long_vla_v0/manifest.json
+
+trainer:
+  device: cuda
+  batch_size: 1
+  steps: 100
+  learning_rate: 1.0e-5
+  weight_decay: 1.0e-4
+  log_every: 1
+  checkpoint_every: 50
+  output_dir: outputs/checkpoints/baseline_smolvla_mikasa_long
