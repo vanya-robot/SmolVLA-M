@@ -18,9 +18,12 @@ data:
 trainer:
   device: cuda
   batch_size: 1
-  steps: 100
+  gradient_accumulation_steps: 4
+  steps: 1000
   learning_rate: 1.0e-5
   weight_decay: 1.0e-4
   log_every: 1
-  checkpoint_every: 50
+  validation_every: 100
+  validation_batches: 16
+  checkpoint_every: 250
   output_dir: outputs/checkpoints/baseline_smolvla_mikasa_long
