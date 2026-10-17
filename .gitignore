@@ -5,6 +5,5 @@ data/
 checkpoints/
 wandb/
 external/
-outputs/
-mlruns/
-mlartifacts/
+
+!smolvla_data/

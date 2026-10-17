@@ -1,0 +1,15 @@
+defaults:
+  - data: mikasa_long
+  - split: episode
+  - _self_
+
+seed: 20261018
+experiment_name: mikasa_window_manifest
+
+tracking:
+  enabled: true
+  uri: sqlite:///mlflow.db
+  experiment: SmolVLA-M
+
+output:
+  manifest: outputs/mikasa/remember_color_3_long_vla_v0/manifest.json

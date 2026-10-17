@@ -1,0 +1,2 @@
+train_fraction: 0.70
+validation_fraction: 0.15

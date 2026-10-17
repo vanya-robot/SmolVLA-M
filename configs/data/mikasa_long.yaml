@@ -1,0 +1,4 @@
+repo_id: mikasa-robo/mikasa-robo-vla-lerobot
+root: ${oc.env:MIKASA_ROOT,${oc.env:HOME}/datasets/mikasa-robo-vla-long/remember_color_3_long_vla_v0}
+horizon: 50
+pad_to_horizon: true
