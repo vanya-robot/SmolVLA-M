@@ -1,0 +1,4 @@
+name: smolvla
+source: pretrained
+pretrained_id: lerobot/smolvla_base
+checkpoint_path: null
