@@ -48,7 +48,7 @@ class MemorySmolVLAPolicy(nn.Module):
         if unfreeze_vlm_layers < 0:
             raise ValueError("unfreeze_vlm_layers must be non-negative")
         self.unfreeze_vlm_layers = int(unfreeze_vlm_layers)
-        if self.spec.variant == "prefix" and self.unfreeze_vlm_layers:
+        if self.unfreeze_vlm_layers:
             self._unfreeze_last_vlm_layers(self.unfreeze_vlm_layers)
         self.vlm_dim = int(model.vlm_with_expert.config.text_config.hidden_size)
         self.expert_dim = int(model.vlm_with_expert.expert_hidden_size)
