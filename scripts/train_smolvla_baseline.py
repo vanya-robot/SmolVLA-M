@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import random
 import time
+import math
 from pathlib import Path
 from contextlib import contextmanager
 
@@ -155,6 +156,9 @@ def main(cfg: DictConfig) -> None:
     accumulation_steps = int(cfg.trainer.gradient_accumulation_steps)
     checkpoint_every = int(cfg.trainer.checkpoint_every)
     validation_every = int(cfg.trainer.validation_every)
+    validation_batches = math.ceil(
+        int(cfg.trainer.validation_windows) / int(cfg.trainer.batch_size)
+    )
     best_validation_loss = float("inf")
     total_steps = int(cfg.trainer.steps)
     samples_seen = 0
@@ -203,7 +207,7 @@ def main(cfg: DictConfig) -> None:
                     validation_loader,
                     preprocessor,
                     stats,
-                    int(cfg.trainer.validation_batches),
+                    validation_batches,
                     int(cfg.seed) + step,
                 )
                 print(f"step={step} validation_loss={validation_loss:.6f}")
