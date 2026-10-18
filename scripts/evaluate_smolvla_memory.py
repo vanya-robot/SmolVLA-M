@@ -65,7 +65,7 @@ def main(cfg: DictConfig) -> None:
         if source in mapped_stats:
             mapped_stats[target] = mapped_stats[source]
     preprocessor, _ = make_smolvla_pre_post_processors(base.config, dataset_stats=mapped_stats)
-    unfreeze_vlm_layers = int(cfg.memory.unfreeze_vlm_layers) if variant == "prefix" else 0
+    unfreeze_vlm_layers = int(cfg.memory.unfreeze_vlm_layers)
     policy = MemorySmolVLAPolicy(
         base,
         MemorySpec(variant, num_tokens),
