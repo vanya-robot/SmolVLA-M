@@ -16,7 +16,7 @@ import torch.nn.functional as F
 from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy
 from lerobot.policies.common.flow_matching import FlowConvention, make_flow_matching_inputs
 from lerobot.utils.constants import ACTION, OBS_LANGUAGE_ATTENTION_MASK, OBS_LANGUAGE_TOKENS
-from lerobot.utils.vla_utils import make_att_2d_masks
+from lerobot.policies.common.vla_utils import make_att_2d_masks
 
 
 @dataclass(frozen=True)
