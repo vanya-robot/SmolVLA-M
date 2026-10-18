@@ -5,7 +5,6 @@ set -euo pipefail
 # The short baseline checkpoint must exist before this script starts.
 
 SHORT_MANIFEST="${SHORT_MANIFEST:-outputs/mikasa/remember_color_3_vla_v0/manifest.json}"
-BASELINE_CHECKPOINT="${BASELINE_CHECKPOINT:-outputs/checkpoints/baseline_smolvla_mikasa_short/best.pt}"
 
 python -m scripts.train_smolvla_memory \
   experiment_name=memory_prefix_remember_color_3_short_full \
@@ -16,7 +15,7 @@ python -m scripts.train_smolvla_memory \
   memory.sequence_length=-1 \
   memory.unfreeze_vlm_layers=4 \
   memory.probe_episode_selection=random \
-  trainer.initialization_checkpoint="$BASELINE_CHECKPOINT" \
+  trainer.initialization_checkpoint="" \
   trainer.batch_size=1 \
   trainer.gradient_accumulation_steps=8 \
   trainer.steps=200 \
@@ -35,7 +34,7 @@ python -m scripts.train_smolvla_memory \
   memory.sequence_length=-1 \
   memory.unfreeze_vlm_layers=4 \
   memory.probe_episode_selection=random \
-  trainer.initialization_checkpoint="$BASELINE_CHECKPOINT" \
+  trainer.initialization_checkpoint="" \
   trainer.batch_size=1 \
   trainer.gradient_accumulation_steps=8 \
   trainer.steps=200 \
