@@ -24,6 +24,8 @@ pip install -r requirements-dev.txt
 python -m experiments.00_memory_smoke
 ```
 
+Detailed experiment commands and parameter explanations are in [RUNBOOK.md](RUNBOOK.md).
+
 Позже LeRobot подключается отдельным окружением:
 
 ```bash
