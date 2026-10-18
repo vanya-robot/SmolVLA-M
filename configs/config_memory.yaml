@@ -1,0 +1,35 @@
+defaults:
+  - data: mikasa_long
+  - _self_
+
+seed: 20261018
+experiment_name: smolvla_memory
+pretrained_policy: lerobot/smolvla_base
+
+tracking:
+  enabled: true
+  uri: sqlite:///mlflow.db
+  experiment: SmolVLA-M
+
+data:
+  manifest: outputs/mikasa/remember_color_3_long_vla_v0/manifest.json
+
+memory:
+  variant: prefix
+  num_tokens: 4
+  sequence_length: 2
+
+trainer:
+  device: cuda
+  batch_size: 1
+  gradient_accumulation_steps: 1
+  steps: 1000
+  learning_rate: 1.0e-5
+  weight_decay: 1.0e-4
+  log_every: 1
+  validation_every: 100
+  checkpoint_every: 250
+  save_checkpoints: true
+  initialization_checkpoint: outputs/checkpoints/baseline_smolvla_mikasa_long/best.pt
+  output_dir: outputs/checkpoints/smolvla_memory
+
