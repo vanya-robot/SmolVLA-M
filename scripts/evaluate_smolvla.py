@@ -87,7 +87,7 @@ def main(cfg: DictConfig) -> None:
         base_dataset.payload,
         str(cfg.evaluation.split),
         int(cfg.evaluation.max_windows),
-        full_only=True,
+        full_only=bool(cfg.evaluation.full_only),
     )
     dataset = torch.utils.data.Subset(base_dataset, selected_indices)
     loader = DataLoader(dataset, batch_size=int(cfg.evaluation.batch_size), shuffle=False, num_workers=0)
