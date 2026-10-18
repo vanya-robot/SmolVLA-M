@@ -68,3 +68,22 @@ class MikasaSequenceDataset(Dataset):
             selected.extend(candidates[position] for position in positions)
         return selected[:max_sequences]
 
+    def probe_indices(self, selection: str = "longest", target_length: int | None = None) -> list[int]:
+        """Return one deterministic sequence from a selected episode for VRAM probes."""
+        if selection not in {"longest", "closest"}:
+            raise ValueError("selection must be 'longest' or 'closest'")
+        if selection == "closest" and target_length is None:
+            raise ValueError("target_length is required for closest selection")
+        episode_ids = sorted({episode for episode, _start in self.starts})
+        if selection == "longest":
+            chosen_episode = max(episode_ids, key=lambda episode: self.base.episode_lengths[episode])
+        else:
+            chosen_episode = min(
+                episode_ids,
+                key=lambda episode: abs(self.base.episode_lengths[episode] - int(target_length)),
+            )
+        for index, (episode, _start) in enumerate(self.starts):
+            if episode == chosen_episode:
+                return [index]
+        raise RuntimeError("Selected episode has no sequence index.")
+
