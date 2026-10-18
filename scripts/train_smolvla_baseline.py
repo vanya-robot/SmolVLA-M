@@ -188,15 +188,17 @@ def main(cfg: DictConfig) -> None:
                     mlflow.log_metric("validation/loss", validation_loss, step=step)
                 if validation_loss < best_validation_loss:
                     best_validation_loss = validation_loss
-                    save_checkpoint(output_dir / "best.pt", policy, optimizer, step, cfg, include_optimizer=False)
-                    if cfg.tracking.enabled:
-                        mlflow.log_artifact(str(output_dir / "best.pt"), artifact_path="checkpoints")
-            if step % checkpoint_every == 0:
+                    if cfg.trainer.save_checkpoints:
+                        save_checkpoint(output_dir / "best.pt", policy, optimizer, step, cfg, include_optimizer=False)
+                        if cfg.tracking.enabled:
+                            mlflow.log_artifact(str(output_dir / "best.pt"), artifact_path="checkpoints")
+            if step % checkpoint_every == 0 and cfg.trainer.save_checkpoints:
                 save_checkpoint(output_dir / "last.pt", policy, optimizer, step, cfg, include_optimizer=True)
 
-        save_checkpoint(output_dir / "final.pt", policy, optimizer, int(cfg.trainer.steps), cfg, include_optimizer=False)
-        save_checkpoint(output_dir / "last.pt", policy, optimizer, int(cfg.trainer.steps), cfg, include_optimizer=True)
-        if cfg.tracking.enabled:
+        if cfg.trainer.save_checkpoints:
+            save_checkpoint(output_dir / "final.pt", policy, optimizer, int(cfg.trainer.steps), cfg, include_optimizer=False)
+            save_checkpoint(output_dir / "last.pt", policy, optimizer, int(cfg.trainer.steps), cfg, include_optimizer=True)
+        if cfg.tracking.enabled and cfg.trainer.save_checkpoints:
             mlflow.log_artifact(str(output_dir / "final.pt"), artifact_path="checkpoints")
 
 
