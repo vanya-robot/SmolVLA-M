@@ -33,7 +33,7 @@ python -m scripts.train_smolvla_memory \
   memory.variant=expert \
   memory.num_tokens=4 \
   memory.sequence_length=-1 \
-  memory.unfreeze_vlm_layers=0 \
+  memory.unfreeze_vlm_layers=4 \
   memory.probe_episode_selection=random \
   trainer.initialization_checkpoint="$BASELINE_CHECKPOINT" \
   trainer.batch_size=1 \
