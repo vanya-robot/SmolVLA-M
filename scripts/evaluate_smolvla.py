@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader, default_collate
 
 from evaluation.policies import load_policy, model_metadata
 from smolvla_data.mikasa_dataset import MikasaWindowDataset
+from smolvla_data.evaluation_sampling import select_stratified_window_indices
 
 
 def set_seed(seed: int) -> None:
@@ -81,7 +82,14 @@ def main(cfg: DictConfig) -> None:
     set_seed(int(cfg.seed))
     requested = str(cfg.trainer.device) if "trainer" in cfg and "device" in cfg.trainer else "cuda"
     device = torch.device(requested if requested == "cpu" or torch.cuda.is_available() else "cpu")
-    dataset = MikasaWindowDataset(cfg.data.manifest, cfg.evaluation.split)
+    base_dataset = MikasaWindowDataset(cfg.data.manifest, cfg.evaluation.split)
+    selected_indices = select_stratified_window_indices(
+        base_dataset.payload,
+        str(cfg.evaluation.split),
+        int(cfg.evaluation.max_windows),
+        full_only=True,
+    )
+    dataset = torch.utils.data.Subset(base_dataset, selected_indices)
     loader = DataLoader(dataset, batch_size=int(cfg.evaluation.batch_size), shuffle=False, num_workers=0)
     stats = dict(dataset.dataset.meta.stats)
     mapped_stats = dict(stats)
@@ -100,7 +108,7 @@ def main(cfg: DictConfig) -> None:
     valid_fractions = []
     iterator = iter(loader)
     with deterministic_rng(int(cfg.seed)), torch.no_grad():
-        for _ in range(int(cfg.evaluation.max_batches)):
+        for _ in range((len(dataset) + int(cfg.evaluation.batch_size) - 1) // int(cfg.evaluation.batch_size)):
             try:
                 raw_batch = next(iterator)
             except StopIteration:
@@ -115,6 +123,7 @@ def main(cfg: DictConfig) -> None:
     result = {
         "seed": int(cfg.seed),
         "split": str(cfg.evaluation.split),
+        "windows": len(dataset),
         "batches": len(losses),
         "batch_size": int(cfg.evaluation.batch_size),
         "loss_mean": sum(losses) / len(losses),
