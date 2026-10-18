@@ -28,4 +28,5 @@ trainer:
   validation_full_only: false
   checkpoint_every: 250
   save_checkpoints: true
+  unfreeze_vlm_layers: 0
   output_dir: outputs/checkpoints/baseline_smolvla_mikasa_long
