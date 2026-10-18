@@ -31,14 +31,21 @@ These numbers are flow-matching losses, not task success rates.
 
 The fine-tuned checkpoint was selected by held-out validation loss. The validation and test losses are close, which is a useful sanity check, but the decisive metric for this project is rollout success rate.
 
-## First memory experiment: pending implementation
+## First memory experiment
 
 The first modification will be a minimal recurrent memory module. It will receive the current SmolVLA context at environment step `t`, update a fixed-size memory state, and expose that state to the action expert. The base vision encoder and VLM remain frozen. We will train only the memory module and action expert, using the same MIKASA split and training budget as the baseline.
 
 The comparison will answer one narrow question: does a compact learned temporal state improve successful execution when the relevant cue is no longer available in the current observation?
 
-No claim about the memory variant is made until it is evaluated in rollout. The first implementation and its exact update equations will be documented here before the run.
+The implementation provides two placements: prefix memory and action-expert suffix memory. It supports contiguous sequence training, deterministic episode probes, and configurable unfreezing of the final VLM text layers for the prefix variant.
+
+No claim about either memory variant is made until it is evaluated in rollout.
+
+## Compute observation
+
+Full backpropagation through a 92–599-step long episode exceeded available training memory with four unfrozen VLM text layers, even at batch size one. This is a training-graph limitation: inference does not retain gradients or the temporal graph, and carries only the current memory state between policy calls. The long task will be revisited with truncated backpropagation or a lower-cost memory writer.
 
 ## Interpretation rule
 
 Action loss is used to debug optimization and compare training dynamics. Final conclusions about memory use success rate in simulation, with identical seeds, task episodes, and rollout protocol for all models.
+
