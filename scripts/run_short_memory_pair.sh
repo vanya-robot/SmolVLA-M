@@ -8,7 +8,7 @@ SHORT_MANIFEST="${SHORT_MANIFEST:-outputs/mikasa/remember_color_3_vla_v0/manifes
 BASELINE_CHECKPOINT="${BASELINE_CHECKPOINT:-outputs/checkpoints/baseline_smolvla_mikasa_short/best.pt}"
 
 python -m scripts.train_smolvla_memory \
-  experiment_name=memory_prefix_short_full \
+  experiment_name=memory_prefix_remember_color_3_short_full \
   data.manifest="$SHORT_MANIFEST" \
   pretrained_policy=lerobot/smolvla_base \
   memory.variant=prefix \
@@ -24,10 +24,10 @@ python -m scripts.train_smolvla_memory \
   trainer.validation_sequences=256 \
   trainer.checkpoint_every=100 \
   trainer.save_checkpoints=true \
-  trainer.output_dir=outputs/checkpoints/memory_prefix_short_full
+  trainer.output_dir=outputs/checkpoints/memory_prefix_remember_color_3_short_full
 
 python -m scripts.train_smolvla_memory \
-  experiment_name=memory_expert_short_full \
+  experiment_name=memory_expert_remember_color_3_short_full \
   data.manifest="$SHORT_MANIFEST" \
   pretrained_policy=lerobot/smolvla_base \
   memory.variant=expert \
@@ -43,5 +43,5 @@ python -m scripts.train_smolvla_memory \
   trainer.validation_sequences=256 \
   trainer.checkpoint_every=100 \
   trainer.save_checkpoints=true \
-  trainer.output_dir=outputs/checkpoints/memory_expert_short_full
+  trainer.output_dir=outputs/checkpoints/memory_expert_remember_color_3_short_full
 
