@@ -48,6 +48,12 @@ class MikasaSequenceDataset(Dataset):
         episode, _start = self.starts[index]
         return [self.base[self.index[episode][offset]] for offset in self.ranges[index]]
 
+    def iter_sequence(self, index: int):
+        """Yield raw samples lazily; important for full-episode probes."""
+        episode, _start = self.starts[index]
+        for offset in self.ranges[index]:
+            yield self.base[self.index[episode][offset]]
+
     def representative_indices(self, max_sequences: int) -> list[int]:
         """Select sequence starts across episodes, avoiding a prefix-only eval."""
         if max_sequences <= 0:
