@@ -150,3 +150,45 @@ python -m scripts.train_smolvla_memory \
   trainer.output_dir=outputs/checkpoints/memory_prefix_seq2_acc8
 ```
 
+## Short-task rollout suite
+
+Download the short variant of the same task and create its episode-level manifest:
+
+```bash
+python - <<'PY'
+from huggingface_hub import snapshot_download
+
+snapshot_download(
+    repo_id="mikasa-robo/mikasa-robo-vla-lerobot",
+    repo_type="dataset",
+    allow_patterns="remember_color_3_vla_v0/**",
+    local_dir="~/datasets/mikasa-robo-vla",
+)
+PY
+
+python -m scripts.prepare_mikasa \
+  data.root="$HOME/datasets/mikasa-robo-vla/remember_color_3_vla_v0" \
+  output.manifest=outputs/mikasa/remember_color_3_vla_v0/manifest.json \
+  experiment_name=mikasa_short_window_manifest
+```
+
+Train its matching baseline with the same 1000-step, batch-24 budget:
+
+```bash
+python -m scripts.train_smolvla_baseline \
+  experiment_name=baseline_smolvla_mikasa_short \
+  data.manifest=outputs/mikasa/remember_color_3_vla_v0/manifest.json \
+  trainer.batch_size=24 \
+  trainer.gradient_accumulation_steps=1 \
+  trainer.steps=1000 \
+  trainer.output_dir=outputs/checkpoints/baseline_smolvla_mikasa_short
+```
+
+After the baseline checkpoint exists, run the prefix and expert variants sequentially:
+
+```bash
+bash scripts/run_short_memory_pair.sh
+```
+
+The pair uses full short episodes, four memory tokens, accumulation 8, and 200 optimizer steps. With roughly 15 observation steps per episode, this is approximately the same 24,000-observation budget as the baseline.
+
