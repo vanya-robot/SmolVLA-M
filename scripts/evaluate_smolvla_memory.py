@@ -65,7 +65,12 @@ def main(cfg: DictConfig) -> None:
         if source in mapped_stats:
             mapped_stats[target] = mapped_stats[source]
     preprocessor, _ = make_smolvla_pre_post_processors(base.config, dataset_stats=mapped_stats)
-    policy = MemorySmolVLAPolicy(base, MemorySpec(variant, num_tokens)).to(device)
+    unfreeze_vlm_layers = int(cfg.memory.unfreeze_vlm_layers) if variant == "prefix" else 0
+    policy = MemorySmolVLAPolicy(
+        base,
+        MemorySpec(variant, num_tokens),
+        unfreeze_vlm_layers=unfreeze_vlm_layers,
+    ).to(device)
     policy.load_state_dict(payload["model"], strict=True)
     policy.eval()
     losses = []
