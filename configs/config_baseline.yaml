@@ -26,4 +26,5 @@ trainer:
   validation_every: 100
   validation_batches: 16
   checkpoint_every: 250
+  save_checkpoints: true
   output_dir: outputs/checkpoints/baseline_smolvla_mikasa_long
