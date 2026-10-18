@@ -41,3 +41,23 @@ class MikasaSequenceDataset(Dataset):
         episode, start = self.starts[index]
         return [self.base[self.index[episode][start + offset]] for offset in range(self.sequence_length)]
 
+    def representative_indices(self, max_sequences: int) -> list[int]:
+        """Select sequence starts across episodes, avoiding a prefix-only eval."""
+        if max_sequences <= 0:
+            raise ValueError("max_sequences must be positive")
+        grouped: dict[int, list[int]] = defaultdict(list)
+        for index, (episode, _start) in enumerate(self.starts):
+            grouped[episode].append(index)
+        selected: list[int] = []
+        episodes = sorted(grouped)
+        per_episode = max(1, max_sequences // max(1, len(episodes)))
+        for episode in episodes:
+            candidates = grouped[episode]
+            count = min(per_episode, len(candidates))
+            if count == 1:
+                positions = [len(candidates) // 2]
+            else:
+                positions = [round(i * (len(candidates) - 1) / (count - 1)) for i in range(count)]
+            selected.extend(candidates[position] for position in positions)
+        return selected[:max_sequences]
+
