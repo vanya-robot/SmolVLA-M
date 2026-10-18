@@ -75,7 +75,12 @@ def main(cfg: DictConfig) -> None:
         if source in mapped_stats:
             mapped_stats[target] = mapped_stats[source]
     preprocessor, _ = make_smolvla_pre_post_processors(base.config, dataset_stats=mapped_stats)
-    policy = MemorySmolVLAPolicy(base, MemorySpec(str(cfg.memory.variant), int(cfg.memory.num_tokens))).to(device)
+    unfreeze_vlm_layers = int(cfg.memory.unfreeze_vlm_layers) if str(cfg.memory.variant) == "prefix" else 0
+    policy = MemorySmolVLAPolicy(
+        base,
+        MemorySpec(str(cfg.memory.variant), int(cfg.memory.num_tokens)),
+        unfreeze_vlm_layers=unfreeze_vlm_layers,
+    ).to(device)
     policy.train()
     parameters = [p for p in policy.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(parameters, lr=float(cfg.trainer.learning_rate), weight_decay=float(cfg.trainer.weight_decay))
@@ -89,7 +94,7 @@ def main(cfg: DictConfig) -> None:
     step_times = []
     with mlflow.start_run(run_name=cfg.experiment_name) if cfg.tracking.enabled else _NullContext():
         if cfg.tracking.enabled:
-            mlflow.log_params({"memory_variant": str(cfg.memory.variant), "memory_tokens": int(cfg.memory.num_tokens), "sequence_length": int(cfg.memory.sequence_length), "trainable_parameters": sum(p.numel() for p in parameters)})
+            mlflow.log_params({"memory_variant": str(cfg.memory.variant), "memory_tokens": int(cfg.memory.num_tokens), "sequence_length": int(cfg.memory.sequence_length), "unfreeze_vlm_layers": unfreeze_vlm_layers, "trainable_parameters": sum(p.numel() for p in parameters)})
         optimizer.zero_grad(set_to_none=True)
         for step in range(1, int(cfg.trainer.steps) + 1):
             started = time.perf_counter()
