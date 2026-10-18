@@ -15,7 +15,7 @@ data:
   manifest: outputs/mikasa/remember_color_3_long_vla_v0/manifest.json
 
 memory:
-  variant: prefix
+  variant: auto
   num_tokens: 4
   sequence_length: 2
 
