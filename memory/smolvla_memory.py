@@ -132,6 +132,7 @@ class MemorySmolVLAPolicy(nn.Module):
             next_memory = suffix_out[:, memory_slice, :]
 
         action_out = suffix_out[:, -self.config.chunk_size :, :]
+        action_out = action_out.to(dtype=self.model.action_out_proj.weight.dtype)
         predicted_velocity = self.model.action_out_proj(action_out).float()
         losses = F.mse_loss(predicted_velocity, target_velocity[:, :, : predicted_velocity.shape[-1]], reduction="none")
         action_is_pad = batch.get("action_is_pad")
