@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import random
+import time
 from pathlib import Path
 from contextlib import contextmanager
 
@@ -14,6 +15,7 @@ from torch.utils.data import DataLoader, default_collate
 from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy
 from lerobot.policies.smolvla.processor_smolvla import make_smolvla_pre_post_processors
 from smolvla_data.mikasa_dataset import MikasaWindowDataset
+from smolvla_data.evaluation_sampling import select_stratified_window_indices
 
 
 def set_seed(seed: int) -> None:
@@ -118,8 +120,15 @@ def main(cfg: DictConfig) -> None:
     device = torch.device(cfg.trainer.device if cfg.trainer.device == "cpu" or torch.cuda.is_available() else "cpu")
     manifest = Path(cfg.data.manifest).expanduser()
     dataset = MikasaWindowDataset(manifest, "train")
-    validation_dataset = MikasaWindowDataset(manifest, "validation")
+    validation_base_dataset = MikasaWindowDataset(manifest, "validation")
     loader = DataLoader(dataset, batch_size=int(cfg.trainer.batch_size), shuffle=True, num_workers=0)
+    validation_indices = select_stratified_window_indices(
+        validation_base_dataset.payload,
+        "validation",
+        int(cfg.trainer.validation_windows),
+        full_only=True,
+    )
+    validation_dataset = torch.utils.data.Subset(validation_base_dataset, validation_indices)
     validation_loader = DataLoader(validation_dataset, batch_size=int(cfg.trainer.batch_size), shuffle=False, num_workers=0)
     stats = dict(dataset.dataset.meta.stats)
     mapped_stats = dict(stats)
@@ -147,13 +156,17 @@ def main(cfg: DictConfig) -> None:
     checkpoint_every = int(cfg.trainer.checkpoint_every)
     validation_every = int(cfg.trainer.validation_every)
     best_validation_loss = float("inf")
+    total_steps = int(cfg.trainer.steps)
+    samples_seen = 0
+    step_times: list[float] = []
     with mlflow.start_run(run_name=cfg.experiment_name) if cfg.tracking.enabled else _nullcontext() as run:
         if cfg.tracking.enabled:
             mlflow.log_params(flatten_config(cfg))
             mlflow.log_param("device", str(device))
             mlflow.log_param("trainable_parameter_count", sum(parameter.numel() for parameter in parameters))
         optimizer.zero_grad(set_to_none=True)
-        for step in range(1, int(cfg.trainer.steps) + 1):
+        for step in range(1, total_steps + 1):
+            step_started = time.perf_counter()
             accumulated_loss = 0.0
             for _ in range(accumulation_steps):
                 try:
@@ -165,13 +178,23 @@ def main(cfg: DictConfig) -> None:
                 loss, _ = policy(batch)
                 (loss / accumulation_steps).backward()
                 accumulated_loss += float(loss.detach())
+                samples_seen += int(raw_batch["action"].shape[0])
             loss = torch.tensor(accumulated_loss / accumulation_steps)
             torch.nn.utils.clip_grad_norm_(parameters, max_norm=1.0)
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
+            step_seconds = time.perf_counter() - step_started
+            step_times.append(step_seconds)
+            mean_step_seconds = sum(step_times[-20:]) / min(len(step_times), 20)
+            eta_seconds = (total_steps - step) * mean_step_seconds
+            fractional_epoch = samples_seen / len(dataset)
             if step % int(cfg.trainer.log_every) == 0:
                 train_loss = float(loss)
-                print(f"step={step} train_loss={train_loss:.6f}")
+                print(
+                    f"step={step} train_loss={train_loss:.6f} "
+                    f"step_time={step_seconds:.1f}s avg_time={mean_step_seconds:.1f}s "
+                    f"epoch={fractional_epoch:.3f} eta={eta_seconds / 60:.1f}min"
+                )
                 if cfg.tracking.enabled:
                     mlflow.log_metric("train/loss", train_loss, step=step)
             if step % validation_every == 0:
@@ -196,8 +219,8 @@ def main(cfg: DictConfig) -> None:
                 save_checkpoint(output_dir / "last.pt", policy, optimizer, step, cfg, include_optimizer=True)
 
         if cfg.trainer.save_checkpoints:
-            save_checkpoint(output_dir / "final.pt", policy, optimizer, int(cfg.trainer.steps), cfg, include_optimizer=False)
-            save_checkpoint(output_dir / "last.pt", policy, optimizer, int(cfg.trainer.steps), cfg, include_optimizer=True)
+            save_checkpoint(output_dir / "final.pt", policy, optimizer, total_steps, cfg, include_optimizer=False)
+            save_checkpoint(output_dir / "last.pt", policy, optimizer, total_steps, cfg, include_optimizer=True)
         if cfg.tracking.enabled and cfg.trainer.save_checkpoints:
             mlflow.log_artifact(str(output_dir / "final.pt"), artifact_path="checkpoints")
 
