@@ -115,6 +115,18 @@ def flatten_config(cfg: DictConfig) -> dict[str, str | int | float | bool]:
     return result
 
 
+def unfreeze_last_vlm_layers(policy: SmolVLAPolicy, count: int) -> None:
+    """Unfreeze only the final text-transformer layers for a capacity-matched control."""
+    if count <= 0:
+        return
+    text_model = policy.model.vlm_with_expert.get_vlm_model().text_model
+    for parameter in policy.model.vlm_with_expert.vlm.parameters():
+        parameter.requires_grad = False
+    for layer in text_model.layers[-min(count, len(text_model.layers)):]:
+        for parameter in layer.parameters():
+            parameter.requires_grad = True
+
+
 @hydra.main(version_base=None, config_path="../configs", config_name="config_baseline")
 def main(cfg: DictConfig) -> None:
     set_seed(int(cfg.seed))
@@ -141,6 +153,7 @@ def main(cfg: DictConfig) -> None:
             mapped_stats[target] = mapped_stats[source]
 
     policy = SmolVLAPolicy.from_pretrained(cfg.pretrained_policy, device=str(device))
+    unfreeze_last_vlm_layers(policy, int(cfg.trainer.unfreeze_vlm_layers))
     preprocessor, _ = make_smolvla_pre_post_processors(policy.config, dataset_stats=mapped_stats)
     policy.train()
     parameters = [parameter for parameter in policy.parameters() if parameter.requires_grad]
@@ -168,6 +181,7 @@ def main(cfg: DictConfig) -> None:
             mlflow.log_params(flatten_config(cfg))
             mlflow.log_param("device", str(device))
             mlflow.log_param("trainable_parameter_count", sum(parameter.numel() for parameter in parameters))
+            mlflow.log_param("unfreeze_vlm_layers", int(cfg.trainer.unfreeze_vlm_layers))
         optimizer.zero_grad(set_to_none=True)
         for step in range(1, total_steps + 1):
             step_started = time.perf_counter()
