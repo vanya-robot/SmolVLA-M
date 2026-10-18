@@ -9,7 +9,7 @@ import hydra
 import mlflow
 import torch
 from omegaconf import DictConfig, OmegaConf
-from torch.utils.data import DataLoader, default_collate
+from torch.utils.data import DataLoader, Subset, default_collate
 
 from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy
 from lerobot.policies.smolvla.processor_smolvla import make_smolvla_pre_post_processors
@@ -61,7 +61,8 @@ def main(cfg: DictConfig) -> None:
     train_data = MikasaSequenceDataset(manifest, "train", int(cfg.memory.sequence_length))
     val_data = MikasaSequenceDataset(manifest, "validation", int(cfg.memory.sequence_length))
     train_loader = DataLoader(train_data, batch_size=1, shuffle=True, num_workers=0, collate_fn=collate_sequence)
-    val_loader = DataLoader(val_data, batch_size=1, shuffle=False, num_workers=0, collate_fn=collate_sequence)
+    val_indices = val_data.representative_indices(int(cfg.trainer.validation_sequences))
+    val_loader = DataLoader(Subset(val_data, val_indices), batch_size=1, shuffle=False, num_workers=0, collate_fn=collate_sequence)
 
     base = SmolVLAPolicy.from_pretrained(cfg.pretrained_policy, device=str(device))
     init_checkpoint = str(cfg.trainer.initialization_checkpoint)
@@ -116,9 +117,7 @@ def main(cfg: DictConfig) -> None:
                 policy.eval()
                 losses = []
                 with torch.no_grad():
-                    for index, raw_sequence in enumerate(val_loader):
-                        if index >= 64:
-                            break
+                    for raw_sequence in val_loader:
                         losses.append(float(policy.forward_sequence(prepare_sequence(raw_sequence, preprocessor, stats, device))))
                 policy.train()
                 val_loss = sum(losses) / len(losses)
