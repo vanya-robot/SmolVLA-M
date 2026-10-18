@@ -184,11 +184,11 @@ python -m scripts.train_smolvla_baseline \
   trainer.output_dir=outputs/checkpoints/baseline_remember_color_3_short
 ```
 
-After the baseline checkpoint exists, run the prefix and expert variants sequentially:
+Run the prefix and expert variants sequentially from the same pretrained SmolVLA initialization:
 
 ```bash
 bash scripts/run_short_memory_pair.sh
 ```
 
-The pair uses full short episodes, four memory tokens, accumulation 8, and 200 optimizer steps. With roughly 15 observation steps per episode, this is approximately the same 24,000-observation budget as the baseline.
+The pair uses full short episodes, four memory tokens, accumulation 8, and 200 optimizer steps. It intentionally does not load the fine-tuned baseline checkpoint, so learning curves and data efficiency remain comparable. With roughly 15 observation steps per episode, this is approximately the same 24,000-observation budget as the baseline.
 
