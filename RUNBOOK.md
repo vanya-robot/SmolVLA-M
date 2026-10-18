@@ -169,19 +169,19 @@ PY
 python -m scripts.prepare_mikasa \
   data.root="$HOME/datasets/mikasa-robo-vla/remember_color_3_vla_v0" \
   output.manifest=outputs/mikasa/remember_color_3_vla_v0/manifest.json \
-  experiment_name=mikasa_short_window_manifest
+  experiment_name=manifest_remember_color_3_short
 ```
 
 Train its matching baseline with the same 1000-step, batch-24 budget:
 
 ```bash
 python -m scripts.train_smolvla_baseline \
-  experiment_name=baseline_smolvla_mikasa_short \
+  experiment_name=baseline_remember_color_3_short \
   data.manifest=outputs/mikasa/remember_color_3_vla_v0/manifest.json \
   trainer.batch_size=24 \
   trainer.gradient_accumulation_steps=1 \
   trainer.steps=1000 \
-  trainer.output_dir=outputs/checkpoints/baseline_smolvla_mikasa_short
+  trainer.output_dir=outputs/checkpoints/baseline_remember_color_3_short
 ```
 
 After the baseline checkpoint exists, run the prefix and expert variants sequentially:
