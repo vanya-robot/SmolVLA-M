@@ -91,7 +91,7 @@ def main(cfg: DictConfig) -> None:
     )
     dataset = torch.utils.data.Subset(base_dataset, selected_indices)
     loader = DataLoader(dataset, batch_size=int(cfg.evaluation.batch_size), shuffle=False, num_workers=0)
-    stats = dict(dataset.dataset.meta.stats)
+    stats = dict(base_dataset.dataset.meta.stats)
     mapped_stats = dict(stats)
     for source, target in {
         "observation.images.top": "observation.images.camera1",
