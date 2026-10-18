@@ -60,7 +60,26 @@ def main(cfg: DictConfig) -> None:
     manifest = Path(cfg.data.manifest).expanduser()
     train_data = MikasaSequenceDataset(manifest, "train", int(cfg.memory.sequence_length))
     val_data = MikasaSequenceDataset(manifest, "validation", int(cfg.memory.sequence_length))
-    train_loader = DataLoader(train_data, batch_size=1, shuffle=True, num_workers=0, collate_fn=collate_sequence)
+    probe_selection = str(cfg.memory.probe_episode_selection)
+    probe_target = cfg.memory.probe_episode_length
+    if probe_selection == "random":
+        train_source = train_data
+        shuffle = True
+    else:
+        indices = train_data.probe_indices(
+            selection=probe_selection,
+            target_length=None if probe_target is None else int(probe_target),
+        )
+        train_source = Subset(train_data, indices)
+        shuffle = False
+        chosen_index = indices[0]
+        chosen_episode, _ = train_data.starts[chosen_index]
+        print(
+            f"probe episode: index={chosen_episode} "
+            f"length={train_data.base.episode_lengths[chosen_episode]} "
+            f"selection={probe_selection} target={probe_target}"
+        )
+    train_loader = DataLoader(train_source, batch_size=1, shuffle=shuffle, num_workers=0, collate_fn=collate_sequence)
     val_indices = val_data.representative_indices(int(cfg.trainer.validation_sequences))
     val_loader = DataLoader(Subset(val_data, val_indices), batch_size=1, shuffle=False, num_workers=0, collate_fn=collate_sequence)
 
