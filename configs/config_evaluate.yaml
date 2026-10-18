@@ -17,5 +17,5 @@ data:
 evaluation:
   split: validation
   batch_size: 1
-  max_batches: 16
+  max_windows: 256
   output: outputs/evaluations/smolvla.json
