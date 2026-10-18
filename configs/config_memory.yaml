@@ -19,6 +19,8 @@ memory:
   num_tokens: 4
   sequence_length: 2
   unfreeze_vlm_layers: 4
+  probe_episode_selection: random
+  probe_episode_length: null
 
 trainer:
   device: cuda
