@@ -1,0 +1,28 @@
+defaults:
+  - data: mikasa_long
+  - _self_
+
+seed: 20261018
+experiment_name: evaluate_smolvla_memory
+pretrained_policy: lerobot/smolvla_base
+
+tracking:
+  enabled: true
+  uri: sqlite:///mlflow.db
+  experiment: SmolVLA-M
+
+data:
+  manifest: outputs/mikasa/remember_color_3_long_vla_v0/manifest.json
+
+memory:
+  variant: prefix
+  num_tokens: 4
+  sequence_length: 2
+
+evaluation:
+  split: test
+  max_sequences: 256
+  batch_size: 1
+  checkpoint_path: outputs/checkpoints/smolvla_memory/best.pt
+  output: outputs/evaluations/smolvla_memory.json
+
