@@ -24,8 +24,7 @@ trainer:
   weight_decay: 1.0e-4
   log_every: 1
   validation_every: 100
-  validation_batches: 16
-  train_eval_batches: 16
+  validation_windows: 256
   checkpoint_every: 250
   save_checkpoints: true
   output_dir: outputs/checkpoints/baseline_smolvla_mikasa_long
