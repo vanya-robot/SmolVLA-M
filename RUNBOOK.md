@@ -1,6 +1,6 @@
 # Experiment runbook
 
-This file explains the commands used for the current SmolVLA/MIKASA experiments. The commands assume the virtual environment is active and the repository root is the current directory.
+This file lists reproducible commands for the current SmolVLA/MIKASA experiments. It omits machine-specific setup and debugging history.
 
 ## Common rules
 
@@ -149,14 +149,4 @@ python -m scripts.train_smolvla_memory \
   trainer.save_checkpoints=true \
   trainer.output_dir=outputs/checkpoints/memory_prefix_seq2_acc8
 ```
-
-## GPU memory housekeeping
-
-Check active processes with:
-
-```bash
-nvidia-smi
-```
-
-Do not call `torch.cuda.empty_cache()` during normal training. It does not free live tensors and may slow subsequent allocations. If no process is running but WSL still holds a CUDA context, `wsl --shutdown` from Windows PowerShell releases it, but also terminates all WSL, SSH, and tmux sessions.
 
