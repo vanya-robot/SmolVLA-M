@@ -49,3 +49,23 @@ Full backpropagation through a 92–599-step long episode exceeded available tra
 
 Action loss is used to debug optimization and compare training dynamics. Final conclusions about memory use success rate in simulation, with identical seeds, task episodes, and rollout protocol for all models.
 
+
+
+## Sequence-level training hypotheses
+
+The memory-free baseline treats one observation window as a training sample. Windows are shuffled, and no memory state is carried between them.
+
+A memory sample is an ordered sequence of windows from one episode. At each observation step, the model receives one observation and predicts an action chunk of shape 50 x 7; the resulting memory state is carried to the next observation. For full-episode training, the sequence starts at the episode reset and contains all observation steps until termination. The loss is computed at each step, while the episode-level memory is reset only at the beginning.
+
+The first short-task experiment uses full episodes because the relevant clue appears near the beginning and the episodes fit the available training memory. Starting a sequence at an arbitrary middle observation resets memory without the earlier clue and therefore tests a different problem.
+
+A later ablation will compare:
+
+1. full-episode sequences;
+2. local subsequences starting at random episode positions;
+3. burn-in sequences that start earlier but apply action loss only after a chosen delay;
+4. a mixture of full and local sequences.
+
+The local-subsequence condition may improve robustness and encourage memory slots to represent multiple kinds of information, but it also changes the task distribution and can make the initial memory state unrealistic. It is therefore a follow-up hypothesis, not part of the first comparison.
+
+Full-episode training can overfit trajectory-specific patterns. Episode-level held-out validation and test, multiple seeds, and rollout success rate are required to distinguish useful memory from scene memorization.
