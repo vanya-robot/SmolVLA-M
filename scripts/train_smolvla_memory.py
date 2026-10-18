@@ -36,12 +36,11 @@ def collate_sequence(batch):
 
 
 def prepare_sequence(raw_sequence, preprocessor, stats, device):
-    result = []
+    """Preprocess one observation at a time instead of materializing a full episode on GPU."""
     for raw_sample in raw_sequence:
         raw_batch = default_collate([raw_sample])
         processed = preprocess_batch(raw_batch, preprocessor, stats)
-        result.append(move_batch(processed, device))
-    return result
+        yield move_batch(processed, device)
 
 
 def save_checkpoint(path, policy, optimizer, step, cfg):
@@ -108,7 +107,13 @@ def main(cfg: DictConfig) -> None:
         mlflow.set_tracking_uri(cfg.tracking.uri)
         mlflow.set_experiment(cfg.tracking.experiment)
 
-    train_iter = iter(train_loader)
+    train_iter = iter(train_loader) if int(cfg.memory.sequence_length) > 0 else iter(range(len(train_source)))
+    def next_sequence(iterator):
+        item = next(iterator)
+        if int(cfg.memory.sequence_length) > 0:
+            return item
+        source_index = item if not isinstance(train_source, Subset) else train_source.indices[item]
+        return train_data.iter_sequence(source_index)
     best = float("inf")
     step_times = []
     with mlflow.start_run(run_name=cfg.experiment_name) if cfg.tracking.enabled else _NullContext():
@@ -120,10 +125,10 @@ def main(cfg: DictConfig) -> None:
             total = 0.0
             for _ in range(int(cfg.trainer.gradient_accumulation_steps)):
                 try:
-                    raw_sequence = next(train_iter)
+                    raw_sequence = next_sequence(train_iter)
                 except StopIteration:
-                    train_iter = iter(train_loader)
-                    raw_sequence = next(train_iter)
+                    train_iter = iter(train_loader) if int(cfg.memory.sequence_length) > 0 else iter(range(len(train_source)))
+                    raw_sequence = next_sequence(train_iter)
                 sequence = prepare_sequence(raw_sequence, preprocessor, stats, device)
                 loss = policy.forward_sequence(sequence)
                 (loss / int(cfg.trainer.gradient_accumulation_steps)).backward()
@@ -141,7 +146,11 @@ def main(cfg: DictConfig) -> None:
                 policy.eval()
                 losses = []
                 with torch.no_grad():
-                    for raw_sequence in val_loader:
+                    if int(cfg.memory.sequence_length) > 0:
+                        validation_iterator = iter(val_loader)
+                    else:
+                        validation_iterator = (val_data.iter_sequence(index) for index in val_indices)
+                    for raw_sequence in validation_iterator:
                         losses.append(float(policy.forward_sequence(prepare_sequence(raw_sequence, preprocessor, stats, device))))
                 policy.train()
                 val_loss = sum(losses) / len(losses)
