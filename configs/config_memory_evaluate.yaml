@@ -18,6 +18,7 @@ memory:
   variant: auto
   num_tokens: 4
   sequence_length: 2
+  unfreeze_vlm_layers: 4
 
 evaluation:
   split: test
