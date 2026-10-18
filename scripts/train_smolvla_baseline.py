@@ -127,7 +127,7 @@ def main(cfg: DictConfig) -> None:
         validation_base_dataset.payload,
         "validation",
         int(cfg.trainer.validation_windows),
-        full_only=True,
+        full_only=bool(cfg.trainer.validation_full_only),
     )
     validation_dataset = torch.utils.data.Subset(validation_base_dataset, validation_indices)
     validation_loader = DataLoader(validation_dataset, batch_size=int(cfg.trainer.batch_size), shuffle=False, num_workers=0)
