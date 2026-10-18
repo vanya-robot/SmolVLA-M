@@ -45,6 +45,19 @@ def main(cfg: DictConfig) -> None:
     device = torch.device("cuda" if str(cfg.evaluation.get("device", "cuda")) == "cuda" and torch.cuda.is_available() else "cpu")
     dataset = MikasaSequenceDataset(Path(cfg.data.manifest).expanduser(), str(cfg.evaluation.split), int(cfg.memory.sequence_length))
     loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0, collate_fn=collate_sequence)
+    checkpoint_path = Path(cfg.evaluation.checkpoint_path).expanduser()
+    payload = torch.load(checkpoint_path, map_location="cpu")
+    checkpoint_memory = payload.get("config", {}).get("memory", {})
+    checkpoint_variant = str(checkpoint_memory.get("variant", ""))
+    checkpoint_tokens = int(checkpoint_memory.get("num_tokens", cfg.memory.num_tokens))
+    requested_variant = str(cfg.memory.variant)
+    if requested_variant != "auto" and requested_variant != checkpoint_variant:
+        raise ValueError(
+            f"Config requests memory.variant={requested_variant!r}, but checkpoint was trained with "
+            f"memory.variant={checkpoint_variant!r}. Use memory.variant=auto or the matching value."
+        )
+    variant = checkpoint_variant if requested_variant == "auto" else requested_variant
+    num_tokens = checkpoint_tokens if requested_variant == "auto" else int(cfg.memory.num_tokens)
     base = SmolVLAPolicy.from_pretrained(cfg.pretrained_policy, device=str(device))
     stats = dict(dataset.dataset.meta.stats)
     mapped_stats = dict(stats)
@@ -52,8 +65,7 @@ def main(cfg: DictConfig) -> None:
         if source in mapped_stats:
             mapped_stats[target] = mapped_stats[source]
     preprocessor, _ = make_smolvla_pre_post_processors(base.config, dataset_stats=mapped_stats)
-    policy = MemorySmolVLAPolicy(base, MemorySpec(str(cfg.memory.variant), int(cfg.memory.num_tokens))).to(device)
-    payload = torch.load(Path(cfg.evaluation.checkpoint_path).expanduser(), map_location="cpu")
+    policy = MemorySmolVLAPolicy(base, MemorySpec(variant, num_tokens)).to(device)
     policy.load_state_dict(payload["model"], strict=True)
     policy.eval()
     losses = []
@@ -69,7 +81,7 @@ def main(cfg: DictConfig) -> None:
         "sequence_length": int(cfg.memory.sequence_length),
         "loss_mean": sum(losses) / len(losses),
         "loss_std": float(torch.tensor(losses).std(unbiased=False)),
-        "memory": {"variant": str(cfg.memory.variant), "num_tokens": int(cfg.memory.num_tokens)},
+        "memory": {"variant": variant, "num_tokens": num_tokens},
         "checkpoint_path": str(cfg.evaluation.checkpoint_path),
     }
     output = Path(cfg.evaluation.output).expanduser()
