@@ -40,11 +40,16 @@ class MemorySmolVLAPolicy(nn.Module):
     beginning of every episode with zeros.
     """
 
-    def __init__(self, base_policy: SmolVLAPolicy, spec: MemorySpec):
+    def __init__(self, base_policy: SmolVLAPolicy, spec: MemorySpec, unfreeze_vlm_layers: int = 0):
         super().__init__()
         self.base_policy = base_policy
         self.spec = spec
         model = self.base_policy.model
+        if unfreeze_vlm_layers < 0:
+            raise ValueError("unfreeze_vlm_layers must be non-negative")
+        self.unfreeze_vlm_layers = int(unfreeze_vlm_layers)
+        if self.spec.variant == "prefix" and self.unfreeze_vlm_layers:
+            self._unfreeze_last_vlm_layers(self.unfreeze_vlm_layers)
         self.vlm_dim = int(model.vlm_with_expert.config.text_config.hidden_size)
         self.expert_dim = int(model.vlm_with_expert.expert_hidden_size)
         self.register_buffer("zero_memory_vlm", torch.zeros(spec.num_tokens, self.vlm_dim), persistent=False)
@@ -53,6 +58,16 @@ class MemorySmolVLAPolicy(nn.Module):
     @property
     def model(self):
         return self.base_policy.model
+
+    def _unfreeze_last_vlm_layers(self, count: int) -> None:
+        """Unfreeze only the final text-transformer layers for prefix memory."""
+        text_model = self.model.vlm_with_expert.get_vlm_model().text_model
+        for parameter in self.model.vlm_with_expert.vlm.parameters():
+            parameter.requires_grad = False
+        count = min(count, len(text_model.layers))
+        for layer in text_model.layers[-count:]:
+            for parameter in layer.parameters():
+                parameter.requires_grad = True
 
     @property
     def config(self):
