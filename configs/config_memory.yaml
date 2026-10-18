@@ -18,6 +18,7 @@ memory:
   variant: prefix
   num_tokens: 4
   sequence_length: 2
+  unfreeze_vlm_layers: 4
 
 trainer:
   device: cuda
