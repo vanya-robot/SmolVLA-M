@@ -25,7 +25,7 @@ trainer:
   log_every: 1
   validation_every: 100
   validation_windows: 256
-  validation_full_only: true
+  validation_full_only: false
   checkpoint_every: 250
   save_checkpoints: true
   output_dir: outputs/checkpoints/baseline_smolvla_mikasa_long
