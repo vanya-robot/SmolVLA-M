@@ -208,7 +208,7 @@ def main(cfg: DictConfig) -> None:
                     preprocessor,
                     stats,
                     validation_batches,
-                    int(cfg.seed) + step,
+                    int(cfg.seed) + 100_000,
                 )
                 print(f"step={step} validation_loss={validation_loss:.6f}")
                 if cfg.tracking.enabled:
