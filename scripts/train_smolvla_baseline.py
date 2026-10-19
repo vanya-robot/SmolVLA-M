@@ -13,10 +13,10 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, default_collate
 
-from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy
 from lerobot.policies.smolvla.processor_smolvla import make_smolvla_pre_post_processors
 from smolvla_data.mikasa_dataset import MikasaWindowDataset
 from smolvla_data.evaluation_sampling import select_stratified_window_indices
+from smolvla_data.policy_factory import load_smolvla
 
 
 def set_seed(seed: int) -> None:
@@ -152,7 +152,8 @@ def main(cfg: DictConfig) -> None:
         if source in mapped_stats:
             mapped_stats[target] = mapped_stats[source]
 
-    policy = SmolVLAPolicy.from_pretrained(cfg.pretrained_policy, device=str(device))
+    action_dim = int(dataset.dataset.meta.features["action"]["shape"][0])
+    policy = load_smolvla(cfg.pretrained_policy, str(device), action_dim)
     unfreeze_last_vlm_layers(policy, int(cfg.trainer.unfreeze_vlm_layers))
     preprocessor, _ = make_smolvla_pre_post_processors(policy.config, dataset_stats=mapped_stats)
     policy.train()
