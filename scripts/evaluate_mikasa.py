@@ -12,6 +12,8 @@ import torch
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", required=True)
+    parser.add_argument("--model-type", choices=("baseline", "prefix", "expert"), default="baseline")
+    parser.add_argument("--memory-tokens", type=int, default=4)
     parser.add_argument("--task", default="RememberColor3-VLA-v0")
     parser.add_argument("--num-episodes", type=int, default=1)
     parser.add_argument("--start-seed", type=int, default=4242424242)
@@ -49,14 +51,35 @@ def make_env(task: str, save_videos: bool, output_dir: Path):
     return env
 
 
-def load_policy(checkpoint: Path, stats_path: Path, device: torch.device):
+def load_policy(checkpoint: Path, stats_path: Path, model_type: str, memory_tokens: int, device: torch.device):
     from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy
     from lerobot.policies.smolvla.processor_smolvla import make_smolvla_pre_post_processors
 
     policy = SmolVLAPolicy.from_pretrained("lerobot/smolvla_base", device=str(device))
     payload = torch.load(checkpoint, map_location="cpu")
-    policy.load_state_dict(payload["model"], strict=True)
+    if model_type == "baseline":
+        policy.load_state_dict(payload["model"], strict=True)
+    else:
+        from memory.smolvla_memory import MemorySmolVLAPolicy, MemorySpec
+
+        checkpoint_memory = payload.get("config", {}).get("memory", {})
+        variant = str(checkpoint_memory.get("variant", model_type))
+        if variant != model_type:
+            raise ValueError(f"Checkpoint memory variant is {variant!r}, but --model-type={model_type!r}")
+        tokens = int(checkpoint_memory.get("num_tokens", memory_tokens))
+        policy = MemorySmolVLAPolicy(
+            policy,
+            MemorySpec(variant, tokens),
+            unfreeze_vlm_layers=int(checkpoint_memory.get("unfreeze_vlm_layers", 0)),
+        ).to(device)
+        policy.load_state_dict(payload["model"], strict=True)
     stats = json.loads(stats_path.read_text(encoding="utf-8"))
+    for source, target in {
+        "observation.images.top": "observation.images.camera1",
+        "observation.images.wrist": "observation.images.camera2",
+    }.items():
+        if source in stats:
+            stats[target] = stats[source]
     preprocessor, postprocessor = make_smolvla_pre_post_processors(
         policy.config,
         dataset_stats=stats,
@@ -81,8 +104,8 @@ def observation_to_batch(obs: dict[str, Any], info: dict[str, Any], device: torc
     if isinstance(instruction, (list, tuple)):
         instruction = instruction[0]
     return {
-        "observation.images.top": top,
-        "observation.images.wrist": wrist,
+        "observation.images.camera1": top,
+        "observation.images.camera2": wrist,
         "observation.state": state,
         "task": [str(instruction)],
     }
@@ -102,7 +125,7 @@ def main() -> None:
     output_dir = Path(args.output_dir).expanduser()
     output_dir.mkdir(parents=True, exist_ok=True)
     policy, preprocessor, postprocessor = load_policy(
-        Path(args.checkpoint).expanduser(), Path(args.stats).expanduser(), device
+        Path(args.checkpoint).expanduser(), Path(args.stats).expanduser(), args.model_type, args.memory_tokens, device
     )
     env = make_env(args.task, args.save_videos, output_dir)
     episodes = []
@@ -110,6 +133,8 @@ def main() -> None:
         for episode in range(args.num_episodes):
             seed = args.start_seed + episode
             policy.reset()
+            memory = policy.initial_memory(1, device) if args.model_type != "baseline" else None
+            action_queue = []
             obs, info = env.reset(seed=seed)
             success = False
             total_return = 0.0
@@ -119,7 +144,13 @@ def main() -> None:
                 raw_batch = observation_to_batch(obs, info, device)
                 batch = preprocessor(raw_batch)
                 with torch.inference_mode():
-                    action = policy.select_action(batch)
+                    if args.model_type == "baseline":
+                        action = policy.select_action(batch)
+                    else:
+                        if not action_queue:
+                            action_chunk, memory = policy.predict_action_chunk(batch, memory)
+                            action_queue = [item.unsqueeze(0) for item in action_chunk[0]]
+                        action = action_queue.pop(0)
                 action = postprocessor(action)
                 action = action.squeeze(0).detach().float()
                 obs, reward, terminated, truncated, info = env.step(action)
