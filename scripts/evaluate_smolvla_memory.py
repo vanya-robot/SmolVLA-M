@@ -11,11 +11,11 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, default_collate
 
-from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy
 from lerobot.policies.smolvla.processor_smolvla import make_smolvla_pre_post_processors
 from memory.smolvla_memory import MemorySmolVLAPolicy, MemorySpec
 from scripts.train_smolvla_baseline import preprocess_batch
 from smolvla_data.mikasa_sequences import MikasaSequenceDataset
+from smolvla_data.policy_factory import load_smolvla
 
 
 def set_seed(seed):
@@ -58,8 +58,9 @@ def main(cfg: DictConfig) -> None:
         )
     variant = checkpoint_variant if requested_variant == "auto" else requested_variant
     num_tokens = checkpoint_tokens if requested_variant == "auto" else int(cfg.memory.num_tokens)
-    base = SmolVLAPolicy.from_pretrained(cfg.pretrained_policy, device=str(device))
     stats = dict(dataset.dataset.meta.stats)
+    action_dim = int(dataset.dataset.meta.features["action"]["shape"][0])
+    base = load_smolvla(cfg.pretrained_policy, str(device), action_dim)
     mapped_stats = dict(stats)
     for source, target in {"observation.images.top": "observation.images.camera1", "observation.images.wrist": "observation.images.camera2"}.items():
         if source in mapped_stats:
