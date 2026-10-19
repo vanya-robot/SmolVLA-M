@@ -133,6 +133,9 @@ def main() -> None:
     try:
         for episode in range(args.num_episodes):
             seed = args.start_seed + episode
+            torch.manual_seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(seed)
             policy.reset()
             memory = policy.initial_memory(1, device) if args.model_type != "baseline" else None
             action_queue = []
@@ -156,6 +159,12 @@ def main() -> None:
                 # tensor-oriented process_action API.
                 action = postprocessor.process_action(action)
                 action = action.squeeze(0).detach().float()
+                expected_action_dim = int(env.action_space.shape[-1])
+                if action.shape[-1] != expected_action_dim:
+                    raise RuntimeError(
+                        f"Action contract mismatch: policy produced {action.shape[-1]} dimensions, "
+                        f"but MIKASA expects {expected_action_dim}."
+                    )
                 obs, reward, terminated, truncated, info = env.step(action)
                 total_return += float(torch.as_tensor(reward).detach().cpu().reshape(-1)[0])
                 success = success or scalar_bool(info.get("success", False))
