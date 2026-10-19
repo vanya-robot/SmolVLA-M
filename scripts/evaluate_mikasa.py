@@ -52,10 +52,12 @@ def make_env(task: str, save_videos: bool, output_dir: Path):
 
 
 def load_policy(checkpoint: Path, stats_path: Path, model_type: str, memory_tokens: int, device: torch.device):
-    from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy
     from lerobot.policies.smolvla.processor_smolvla import make_smolvla_pre_post_processors
+    from smolvla_data.policy_factory import load_smolvla
 
-    policy = SmolVLAPolicy.from_pretrained("lerobot/smolvla_base", device=str(device))
+    stats = json.loads(stats_path.read_text(encoding="utf-8"))
+    action_dim = int(len(stats["action"]["mean"]))
+    policy = load_smolvla("lerobot/smolvla_base", str(device), action_dim)
     payload = torch.load(checkpoint, map_location="cpu")
     if model_type == "baseline":
         policy.load_state_dict(payload["model"], strict=True)
@@ -73,7 +75,6 @@ def load_policy(checkpoint: Path, stats_path: Path, model_type: str, memory_toke
             unfreeze_vlm_layers=int(checkpoint_memory.get("unfreeze_vlm_layers", 0)),
         ).to(device)
         policy.load_state_dict(payload["model"], strict=True)
-    stats = json.loads(stats_path.read_text(encoding="utf-8"))
     for source, target in {
         "observation.images.top": "observation.images.camera1",
         "observation.images.wrist": "observation.images.camera2",
