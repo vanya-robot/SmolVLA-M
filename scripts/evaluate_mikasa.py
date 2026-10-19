@@ -151,10 +151,9 @@ def main() -> None:
                             action_chunk, memory = policy.predict_action_chunk(batch, memory)
                             action_queue = [item.unsqueeze(0) for item in action_chunk[0]]
                         action = action_queue.pop(0)
-                # LeRobot 0.6 processors operate on a transition mapping.
-                # Passing the raw tensor makes the pipeline interpret tensor
-                # dimensions as transition fields and corrupts action shape.
-                action = postprocessor({"action": action})["action"]
+                # LeRobot 0.6 exposes policy postprocessing through the
+                # tensor-oriented process_action API.
+                action = postprocessor.process_action(action)
                 action = action.squeeze(0).detach().float()
                 obs, reward, terminated, truncated, info = env.step(action)
                 total_return += float(torch.as_tensor(reward).detach().cpu().reshape(-1)[0])
