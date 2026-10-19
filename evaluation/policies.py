@@ -9,14 +9,14 @@ from pathlib import Path
 from typing import Any
 
 import torch
+from smolvla_data.policy_factory import load_smolvla
 
 
 def load_policy(cfg, device: torch.device):
     if cfg.name != "smolvla":
         raise ValueError(f"Unknown evaluation policy: {cfg.name}")
-    from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy
-
-    policy = SmolVLAPolicy.from_pretrained(cfg.pretrained_id, device=str(device))
+    action_dim = int(cfg.get("action_dim", 7))
+    policy = load_smolvla(cfg.pretrained_id, str(device), action_dim)
     if cfg.source == "checkpoint":
         if not cfg.checkpoint_path:
             raise ValueError("model.checkpoint_path is required when model.source=checkpoint")
