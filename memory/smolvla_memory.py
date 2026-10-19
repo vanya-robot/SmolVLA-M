@@ -152,8 +152,9 @@ class MemorySmolVLAPolicy(nn.Module):
 
         action_out = suffix_out[:, -self.config.chunk_size :, :]
         action_out = action_out.to(dtype=self.model.action_out_proj.weight.dtype)
-        predicted_velocity = self.model.action_out_proj(action_out).float()
-        losses = F.mse_loss(predicted_velocity, target_velocity[:, :, : predicted_velocity.shape[-1]], reduction="none")
+        action_dim = int(self.config.action_feature.shape[0])
+        predicted_velocity = self.model.action_out_proj(action_out).float()[:, :, :action_dim]
+        losses = F.mse_loss(predicted_velocity, target_velocity[:, :, :action_dim], reduction="none")
         action_is_pad = batch.get("action_is_pad")
         if action_is_pad is not None:
             losses = losses * (~action_is_pad).unsqueeze(-1)
