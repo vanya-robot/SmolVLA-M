@@ -11,11 +11,11 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, Subset, default_collate
 
-from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy
 from lerobot.policies.smolvla.processor_smolvla import make_smolvla_pre_post_processors
 from memory.smolvla_memory import MemorySmolVLAPolicy, MemorySpec
 from scripts.train_smolvla_baseline import preprocess_batch, map_mikasa_cameras
 from smolvla_data.mikasa_sequences import MikasaSequenceDataset
+from smolvla_data.policy_factory import load_smolvla
 
 
 def set_seed(seed: int) -> None:
@@ -82,7 +82,8 @@ def main(cfg: DictConfig) -> None:
     val_indices = val_data.representative_indices(int(cfg.trainer.validation_sequences))
     val_loader = DataLoader(Subset(val_data, val_indices), batch_size=1, shuffle=False, num_workers=0, collate_fn=collate_sequence)
 
-    base = SmolVLAPolicy.from_pretrained(cfg.pretrained_policy, device=str(device))
+    action_dim = int(train_data.dataset.meta.features["action"]["shape"][0])
+    base = load_smolvla(cfg.pretrained_policy, str(device), action_dim)
     init_checkpoint = str(cfg.trainer.initialization_checkpoint)
     if init_checkpoint and Path(init_checkpoint).expanduser().exists():
         payload = torch.load(Path(init_checkpoint).expanduser(), map_location="cpu")
