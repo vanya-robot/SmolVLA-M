@@ -119,6 +119,7 @@ def main(cfg: DictConfig) -> None:
     step_times = []
     with mlflow.start_run(run_name=cfg.experiment_name) if cfg.tracking.enabled else _NullContext():
         if cfg.tracking.enabled:
+            mlflow.log_dict(OmegaConf.to_container(cfg, resolve=True), "config.json")
             mlflow.log_params({"memory_variant": str(cfg.memory.variant), "memory_tokens": int(cfg.memory.num_tokens), "sequence_length": int(cfg.memory.sequence_length), "unfreeze_vlm_layers": unfreeze_vlm_layers, "trainable_parameters": sum(p.numel() for p in parameters)})
         optimizer.zero_grad(set_to_none=True)
         for step in range(1, int(cfg.trainer.steps) + 1):
@@ -166,6 +167,9 @@ def main(cfg: DictConfig) -> None:
         if cfg.trainer.save_checkpoints:
             save_checkpoint(output_dir / "final.pt", policy, optimizer, int(cfg.trainer.steps), cfg)
             save_checkpoint(output_dir / "last.pt", policy, optimizer, int(cfg.trainer.steps), cfg)
+            if cfg.tracking.enabled:
+                mlflow.log_artifact(str(output_dir / "best.pt"), artifact_path="checkpoints")
+                mlflow.log_artifact(str(output_dir / "final.pt"), artifact_path="checkpoints")
 
 
 class _NullContext:
