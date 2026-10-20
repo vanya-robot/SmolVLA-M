@@ -12,6 +12,7 @@ import torch
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", required=True)
+    parser.add_argument("--execution-horizon", type=int, default=1, help="Actions executed before observing again")
     parser.add_argument("--model-type", choices=("baseline", "prefix", "expert"), default="baseline")
     parser.add_argument("--memory-tokens", type=int, default=4)
     parser.add_argument("--task", default="RememberColor3-VLA-v0")
@@ -128,6 +129,8 @@ def main() -> None:
     policy, preprocessor, postprocessor = load_policy(
         Path(args.checkpoint).expanduser(), Path(args.stats).expanduser(), args.model_type, args.memory_tokens, device
     )
+    if not 1 <= args.execution_horizon <= policy.config.chunk_size:
+        raise ValueError("execution-horizon must be between 1 and the model chunk size")
     env = make_env(args.task, args.save_videos, output_dir)
     episodes = []
     try:
@@ -148,13 +151,15 @@ def main() -> None:
                 raw_batch = observation_to_batch(obs, info, device)
                 batch = preprocessor(raw_batch)
                 with torch.inference_mode():
-                    if args.model_type == "baseline":
-                        action = policy.select_action(batch)
-                    else:
-                        if not action_queue:
+                    if not action_queue:
+                        if args.model_type == "baseline":
+                            action_chunk = policy.predict_action_chunk(batch)
+                        else:
                             action_chunk, memory = policy.predict_action_chunk(batch, memory)
-                            action_queue = [item.unsqueeze(0) for item in action_chunk[0]]
-                        action = action_queue.pop(0)
+                        action_dim = int(policy.config.action_feature.shape[0])
+                        action_chunk = action_chunk[..., :action_dim]
+                        action_queue = list(action_chunk[:, :args.execution_horizon].unbind(dim=1))
+                    action = action_queue.pop(0)
                 # LeRobot 0.6 exposes policy postprocessing through the
                 # tensor-oriented process_action API.
                 action = postprocessor.process_action(action)
@@ -181,6 +186,8 @@ def main() -> None:
         env.close()
     result = {
         "task": args.task,
+        "model_type": args.model_type,
+        "execution_horizon": args.execution_horizon,
         "num_episodes": len(episodes),
         "start_seed": args.start_seed,
         "success_rate": sum(item["success"] for item in episodes) / max(1, len(episodes)),
