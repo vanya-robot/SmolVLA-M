@@ -229,5 +229,6 @@ class MemorySmolVLAPolicy(nn.Module):
             action_out = action_out.to(dtype=self.model.action_out_proj.weight.dtype)
             velocity = self.model.action_out_proj(action_out).to(dtype=x.dtype)
             x = x - velocity / steps
-        return x.float(), next_memory.detach()
+        action_dim = int(self.config.action_feature.shape[0])
+        return x[:, :, :action_dim].float(), next_memory.detach()
 
